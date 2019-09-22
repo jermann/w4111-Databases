@@ -112,7 +112,22 @@ class CSVDataTable(BaseDataTable):
         :return: None, or a dictionary containing the requested fields for the record identified
             by the key.
         """
-        pass
+
+        assert key_fields != None, "Key field is None"
+        assert key_fields != [], "Key field is an empty list"
+
+        # key_fields will give the values for the key columns: so if key column played ID and year, then will be ('apj','2021')
+        # key columns are data attribute, so use that!!!
+
+        keys = self._data['key_columns']
+        values = key_fields
+
+        assert len(keys) == len(values), "key columns and key fields are not the same length"
+
+        template = dict(zip(keys, values))
+        tmp_dict = self.find_by_template(template, field_list=field_list)[0]
+
+        return tmp_dict
 
     def find_by_template(self, template, field_list=None, limit=None, offset=None, order_by=None):
         """
@@ -125,7 +140,18 @@ class CSVDataTable(BaseDataTable):
         :return: A list containing dictionaries. A dictionary is in the list representing each record
             that matches the template. The dictionary only contains the requested fields.
         """
-        pass
+        a = None
+
+        for row in self.get_rows():
+            if self.matches_template(row, template):
+                if a == None:
+                    a = list()
+                if field_list == None:
+                    a.append(row)
+                else:
+                    a.append(self.get_columns(row, field_list))
+        return a
+
 
     def delete_by_key(self, key_fields):
         """
@@ -135,15 +161,36 @@ class CSVDataTable(BaseDataTable):
         :param template: A template.
         :return: A count of the rows deleted.
         """
-        pass
 
-    def delete_by_template(self, template):
+        count = 0
+        keys = self._data['key_columns']
+        values = key_fields
+
+        assert len(keys) == len(values), "key columns and key fields are not the same length"
+        assert key_fields != None, "Key field is None"
+        assert key_fields != [], "Key field is an empty list"
+
+        template = dict(zip(keys, values))
+        count += self.delete_by_template(template, by_key=True)
+
+        return count
+
+    def delete_by_template(self, template, by_key=False):
         """
 
         :param template: Template to determine rows to delete.
         :return: Number of rows deleted.
         """
-        pass
+
+        count = 0
+
+        for row in self.get_rows():
+            if self.matches_template(row, template):
+                count += self.delete_row(row)
+                if by_key:
+                    break
+
+        return count
 
     def update_by_key(self, key_fields, new_values):
         """
@@ -153,14 +200,42 @@ class CSVDataTable(BaseDataTable):
         :return: Number of rows updated.
         """
 
-    def update_by_template(self, template, new_values):
+        count = 0
+
+        keys = self._data['key_columns']
+        values = key_fields
+
+        assert len(keys) == len(values), "key columns and key fields are not the same length"
+        assert key_fields != None, "Key field is None"
+        assert key_fields != [], "Key field is an empty list"
+
+        template = dict(zip(keys, values))
+        count += self.update_by_template(template, new_values, by_key=True)
+
+        return count
+
+
+
+    def update_by_template(self, template, new_values, by_key=False):
         """
 
         :param template: Template for rows to match.
         :param new_values: New values to set for matching fields.
         :return: Number of rows updated.
         """
-        pass
+
+        count = 0
+
+        for row in self.get_rows():
+            if self.matches_template(row, template):
+                self.delete_row(row) # AJ inefficient because going through list twice? Can directly delete by
+                self._add_row(new_values)
+                count += 1
+                if by_key:
+                    break
+
+        return count
+
 
     def insert(self, new_record):
         """
@@ -168,8 +243,32 @@ class CSVDataTable(BaseDataTable):
         :param new_record: A dictionary representing a row to add to the set of records.
         :return: None
         """
-        pass
+        # AJ: verify that similar
+        self._add_row(new_record)
+
+        return None
 
     def get_rows(self):
         return self._rows
+
+    # AJ
+    def get_row(self, index):
+        return self._rows[index]
+
+    # AJ
+    def delete_row_index(self, index):
+        deleted = self._rows.pop(index)
+        return deleted
+
+    # AJ
+    def delete_row(self, row):
+        self._rows.remove(row)
+        return 1
+
+    # AJ
+    def get_columns(self, row, col_list):
+        result = {}
+        for c in col_list:
+            result[c] = row[c]
+        return result
 
