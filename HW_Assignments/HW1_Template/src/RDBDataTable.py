@@ -1,5 +1,6 @@
 from src.BaseDataTable import BaseDataTable
-import src.dbutils as dbutils
+#import src.dbutils as dbutils
+import src.SQLHelper as dbutils
 import json
 import pandas as pd
 import pymysql
@@ -69,7 +70,25 @@ class RDBDataTable(BaseDataTable):
         :return: None, or a dictionary containing the requested fields for the record identified
             by the key.
         """
-        pass
+
+        tmp = None
+
+        # Var Declarations
+        table_name = self._data['table_name']
+        keys = self._data['key_columns']
+        values = key_fields
+        template = dict(zip(keys, values))
+
+        # Form SQL Command
+        sql, args = dbutils.create_select(table_name=table_name, template=template, fields=field_list)
+
+        # Run SQL Command
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx) # AJ: conn OR self.data connect info
+
+        if res != 0:
+            tmp = data[0]
+
+        return tmp
 
     def find_by_template(self, template, field_list=None, limit=None, offset=None, order_by=None):
         """
@@ -82,7 +101,15 @@ class RDBDataTable(BaseDataTable):
         :return: A list containing dictionaries. A dictionary is in the list representing each record
             that matches the template. The dictionary only contains the requested fields.
         """
-        pass
+
+        a = list()
+
+        table_name = self._data['table_name']
+
+        sql, args = dbutils.create_select(table_name=table_name, template=template, fields=field_list)
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
+
+        return data
 
     def delete_by_key(self, key_fields):
         """
@@ -92,7 +119,17 @@ class RDBDataTable(BaseDataTable):
         :param template: A template.
         :return: A count of the rows deleted.
         """
-        pass
+
+        table_name = self._data['table_name']
+        keys = self._data['key_columns']
+        values = key_fields
+        template = dict(zip(keys, values))
+
+        sql, args = dbutils.create_delete(table_name=table_name, template=template)
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
+
+        # AJ: is res = count?
+        return res
 
     def delete_by_template(self, template):
         """
@@ -100,7 +137,12 @@ class RDBDataTable(BaseDataTable):
         :param template: Template to determine rows to delete.
         :return: Number of rows deleted.
         """
-        pass
+        table_name = self._data['table_name']
+
+        sql, args = dbutils.create_delete(table_name=table_name, template=template)
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
+
+        return res
 
     def update_by_key(self, key_fields, new_values):
         """
@@ -110,6 +152,17 @@ class RDBDataTable(BaseDataTable):
         :return: Number of rows updated.
         """
 
+        table_name = self._data['table_name']
+        keys = self._data['key_columns']
+        values = key_fields
+        template = dict(zip(keys, values))
+
+        sql, args = dbutils.create_update(table_name=table_name, new_values=new_values, template=template)
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
+
+        return res
+
+
     def update_by_template(self, template, new_values):
         """
 
@@ -117,7 +170,12 @@ class RDBDataTable(BaseDataTable):
         :param new_values: New values to set for matching fields.
         :return: Number of rows updated.
         """
-        pass
+        table_name = self._data['table_name']
+
+        sql, args = dbutils.create_update(table_name=table_name, new_values=new_values, template=template)
+        res, data = dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
+
+        return res
 
     def insert(self, new_record):
         """
@@ -125,61 +183,12 @@ class RDBDataTable(BaseDataTable):
         :param new_record: A dictionary representing a row to add to the set of records.
         :return: None
         """
-        pass
+
+        table_name = self._data['table_name']
+        sql, args = dbutils.create_insert(table_name=table_name, row=new_record)
+        dbutils.run_q(sql=sql, args=args, fetch=True, conn=self._cnx)
 
     def get_rows(self):
         return self._rows
-
-
-# AJ: In class or not?
-def template_to_where_clause(template):
-    """
-
-    :param template: One of those weird templates
-    :return: WHERE clause corresponding to the template.
-    """
-
-    if template is None or template == {}:
-        result = (None, None)
-    else:
-        args = []
-        terms = []
-
-        for k, v in template.items():
-            terms.append(" " + k + "=%s ")
-            args.append(v)
-
-        w_clause = "AND".join(terms)
-        w_clause = " WHERE " + w_clause
-
-        result = (w_clause, args)
-
-    return result
-
-def create_select(table_name, template, fields, order_by=None, limit=None, offset=None):
-    """
-    Produce a select statement: sql string and args.
-
-    :param table_name: Table name: May be fully qualified dbname.tablename or just tablename.
-    :param fields: Columns to select (an array of column name)
-    :param template: One of Don Ferguson's weird JSON/python dictionary templates.
-    :param order_by: Ignore for now.
-    :param limit: Ignore for now.
-    :param offset: Ignore for now.
-    :return: A tuple of the form (sql string, args), where the sql string is a template.
-    """
-
-    if fields is None:
-        field_list = " * "
-    else:
-        field_list = " " + ",".join(fields) + " "
-
-    w_clause, args = template_to_where_clause(template)
-
-    sql = "select " + field_list + " from " + table_name + " " + w_clause
-
-    return (sql, args)
-
-
 
 
